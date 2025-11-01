@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>EDUFUN • اختبار الأسماء الحسنى</title>
+<style>
+:root{
+  --ink:#0f172a; --accent:#1f7ae0; --ok:#16a34a; --warn:#f59e0b; --err:#e63946;
+  --glass: rgba(255,255,255,0.88);
+}
+html,body{height:100%}
+body{
+  margin:0; color:var(--ink);
+  font-family:system-ui,-apple-system,"Noto Kufi Arabic","Cairo",Tahoma,Arial;
+  background: linear-gradient(35deg,#55c6ff 0%, #1f7ae0 100%) fixed;
+}
+body::before{
+  content:""; position:fixed; inset:0; z-index:-2;
+  background:url('assets/edufun-bg.png') center/cover no-repeat;
+  filter:saturate(108%) contrast(110%);
+}
+body::after{
+  content:""; position:fixed; inset:auto 0 16px 16px; width:160px; height:70px; z-index:-1;
+  background:url("edufun-logo.png") no-repeat left/contain;
+  opacity:.10; pointer-events:none;
+}
+header,.card{
+  background:var(--glass);
+  backdrop-filter: blur(10px);
+  border:1px solid rgba(255,255,255,0.6);
+  border-radius:18px;
+  box-shadow:0 10px 30px rgba(31,122,224,.18);
+}
+.wrap{max-width:920px;margin:auto;padding:12px}
+header{position:sticky;top:0;z-index:5;margin-bottom:12px}
+.brandbar{display:flex;align-items:center;gap:12px}
+.brand{height:56px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.16))}
+@media (max-width:520px){.brand{height:48px}}
+h1{margin:0;font-size:22px}
+
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center}
+button,select{padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.65);background:#fff;font-size:14px}
+button.primary{background:#1f7ae0;border-color:#1f7ae0;color:#fff;box-shadow:0 6px 16px rgba(31,122,224,.25)}
+button.flat{background:#f8fbff}
+.stat{margin-inline-start:auto;font-size:13px;opacity:.9;display:flex;gap:10px;align-items:center}
+.hearts{display:inline-flex;gap:4px}
+.heart{font-size:18px;opacity:.35}
+.heart.alive{opacity:1}
+
+main .wrap{display:grid;grid-template-columns:1fr;gap:12px}
+.card{padding:18px}
+.q-title{font-size:clamp(18px,4.8vw,22px);margin:0 0 8px}
+.name{font-size:clamp(28px,8vw,40px);font-weight:800;color:#0b3a8b;margin:6px 0 10px}
+.progressbar{height:10px;background:#e7f0ff;border-radius:999px;overflow:hidden;margin:8px 0 14px;border:1px solid #e5eefc}
+.progressbar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#53b3ff,#1f7ae0);transition:width .3s}
+.options{display:grid;gap:10px;margin-top:6px}
+.option{padding:14px;border-radius:14px;border:1px solid #e5eefc;background:#fff;text-align:right;font-size:16px}
+.option.correct{background:#e8f7ee;border-color:#b7e3c8}
+.option.wrong{background:#ffe8e8;border-color:#ffd1d1}
+.meta{display:flex;gap:8px;align-items:center;margin-top:10px}
+.meta .score{font-weight:700}
+.result{margin-top:10px;min-height:24px;font-size:14px}
+.footer{font-size:12px;color:#eef6ff;margin-top:6px;text-shadow:0 1px 2px rgba(0,0,0,.2);text-align:center}
+.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+.hide{display:none}
+.center{text-align:center}
+.big{font-size:clamp(20px,5.2vw,28px)}
+</style>
+
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1f7ae0">
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js');
+  });
+}
+</script>
+
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="brandbar">
+      <img class="brand" src="assets/edufun-logo.png" alt="EDUFUN">
+      <h1>اختبار الأسماء الحسنى</h1>
+    </div>
+    <div class="controls">
+      <button id="btnSpeak" class="flat">🔊 استمع</button>
+      <button id="btnShuffle" class="flat">خلط</button>
+      <button id="btnRestart" class="primary">بدء جولة جديدة</button>
+      <div class="stat">
+        <div class="hearts" id="hearts">
+          <span class="heart alive">❤</span>
+          <span class="heart alive">❤</span>
+          <span class="heart alive">❤</span>
+        </div>
+        <span>النقاط: <b id="score">0</b></span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <section class="card" id="panelQuiz">
+      <div class="progressbar"><i id="bar"></i></div>
+      <h3 class="q-title" id="qTitle">اختر المعنى الصحيح للاسم:</h3>
+      <div class="name" id="qName">الله</div>
+      <div class="options" id="options"></div>
+      <div class="meta">
+        <span>السؤال <b id="nIdx">1</b> / <b id="nTotal">10</b></span>
+        <span class="score">• النقاط: <span id="score2">0</span></span>
+      </div>
+      <div class="result" id="qResult"></div>
+    </section>
+
+    <section class="card center hide" id="panelEnd">
+      <div class="big" id="endTitle">أحسنت! ✅</div>
+      <p id="endMsg">نتيجتك 10 / 10 — رائع!</p>
+      <div class="actions">
+        <button class="primary" id="playAgain">جولة جديدة</button>
+        <button class="flat" id="reviewWrong">مراجعة الأخطاء</button>
+      </div>
+    </section>
+
+    <div class="footer">EDUFUN • يعمل على الهاتف والحاسوب • 10 أسئلة لكل جولة</div>
+  </div>
+</main>
+
+<script>
+/* البيانات: الأسماء مع معاني موجزة (نفس مصدر البطاقات) */
+const DATA=[
+{n:"الله",m:"اسم الجلالة، المعبود بحق، الجامع لصفات الكمال."},
+{n:"الرحمن",m:"كثير الرحمة في الدنيا والآخرة، رحمةً عامةً بكل خلقه."},
+{n:"الرحيم",m:"يخصّ أولياءه بالمغفرة والرحمة في الآخرة."},
+{n:"الملك",m:"المالك لكل شيء، المتصرف في ملكه كيف يشاء."},
+{n:"القدوس",m:"المنزّه عن كل نقص وعيب."},
+{n:"السلام",m:"السالم من كل نقص، ومانح السلام لعباده."},
+{n:"المؤمن",m:"المصدِّق رسله، المؤمِّن لعباده من الخوف."},
+{n:"المهيمن",m:"الرقيب الشهيد على عباده، القائم على كل شيء."},
+{n:"العزيز",m:"الذي لا يُغلب ولا يُقهر."},
+{n:"الجبار",m:"العالي القاهر، وجابر كسر الضعفاء."},
+{n:"المتكبر",m:"المتعالي عن صفات المخلوقين."},
+{n:"الخالق",m:"مقدِّر الأشياء ومبدعها على غير مثال سابق."},
+{n:"البارئ",m:"خالق الخلق مميِّزًا بعضهم عن بعض."},
+{n:"المصور",m:"مُعطي كل مخلوق صورته."},
+{n:"الغفار",m:"كثير المغفرة لعباده مع ستر الذنب."},
+{n:"القهار",m:"القاهر فوق عباده."},
+{n:"الوهاب",m:"الذي يعطي بغير عوض."},
+{n:"الرزاق",m:"الذي يرزق عباده جميعًا."},
+{n:"الفتاح",m:"الذي يفتح الرحمة والرزق ويحكم بالحق."},
+{n:"العليم",m:"العالم بكل شيء."},
+{n:"القابض",m:"القابض للأرزاق والأنفاس بحكمته."},
+{n:"الباسط",m:"الذي يبسط الرزق والرحمة."},
+{n:"الخافض",m:"يخفض أهل الباطل."},
+{n:"الرافع",m:"يرفع أهل الحق."},
+{n:"المعز",m:"المعز لمن يشاء."},
+{n:"المذل",m:"المذل لمن يشاء."},
+{n:"السميع",m:"الذي يسمع السر والنجوى."},
+{n:"البصير",m:"يبصر كل شيء ظاهرًا وباطنًا."},
+{n:"الحكم",m:"الحاكم بين عباده بالقسط."},
+{n:"العدل",m:"المقيم للعدل، المنزّه عن الظلم."},
+{n:"اللطيف",m:"الرفيق بعباده، يُوصل الخير بلطف."},
+{n:"الخبير",m:"العليم ببواطن الأمور."},
+{n:"الحليم",m:"لا يعجل مع قدرته."},
+{n:"العظيم",m:"عظيم الذات والصفات."},
+{n:"الغفور",m:"يغفر الذنوب جميعًا لمن تاب."},
+{n:"الشكور",m:"يجزي القليل بكثير من الثواب."},
+{n:"العلي",m:"المرتفع قدرًا وقهرًا."},
+{n:"الكبير",m:"جلّ قدره، وكل شيء دونه صغير."},
+{n:"الحفيظ",m:"يحفظ خلقه وأعمالهم."},
+{n:"المقيت",m:"الرازق الكافي الذي يوصل الأقوات."},
+{n:"الحسيب",m:"الكافي، والمحاسِب على الأعمال."},
+{n:"الجليل",m:"العظيم ذو الجلال والكمال."},
+{n:"الكريم",m:"الذي يعطي بلا حساب."},
+{n:"الرقيب",m:"الحافظ المراقِب لكل شيء."},
+{n:"المجيب",m:"يستجيب دعاء الداعين."},
+{n:"الواسع",m:"وسع علمه ورحمته كل شيء."},
+{n:"الحكيم",m:"لا يفعل إلا لحكمة."},
+{n:"الودود",m:"المحبّ لأوليائه."},
+{n:"المجيد",m:"العظيم الكريم كثير الإحسان."},
+{n:"الباعث",m:"يبعث الخلق ويبعث الهمم للطاعة."},
+{n:"الشهيد",m:"المطّلع على كل شيء."},
+{n:"الحق",m:"الوجود الثابت."},
+{n:"الوكيل",m:"الكافي المتكفّل."},
+{n:"القوي",m:"لا يغالبه غالب."},
+{n:"المتين",m:"الثابت الذي لا يلحقه إعياء."},
+{n:"الولي",m:"متولّي أمور الصالحين."},
+{n:"الحميد",m:"المحمود على كل حال."},
+{n:"المحصي",m:"أحصى كل شيء عددًا."},
+{n:"المبدئ",m:"المبتدئ للخلق."},
+{n:"المعيد",m:"يعيد الخلق بعد الموت."},
+{n:"المحيي",m:"معطي الحياة."},
+{n:"المميت",m:"قابض الأرواح حين الأجل."},
+{n:"الحي",m:"لا يموت ولا تأخذه سنة ولا نوم."},
+{n:"القيوم",m:"القائم بنفسه المقيم لغيره."},
+{n:"الواجد",m:"الغني الذي لا يفتقر."},
+{n:"الماجد",m:"العظيم المكرم."},
+{n:"الواحد",m:"المتفرد بالألوهية."},
+{n:"الصمد",m:"السيد المقصود في الحوائج."},
+{n:"القادر",m:"له القدرة الشاملة."},
+{n:"المقتدر",m:"بالغ القدرة."},
+{n:"المقدم",m:"يقدّم من يشاء."},
+{n:"المؤخر",m:"يؤخر من يشاء."},
+{n:"الأول",m:"لا شيء قبله."},
+{n:"الآخر",m:"لا شيء بعده."},
+{n:"الظاهر",m:"ظهرت دلائل وجوده."},
+{n:"الباطن",m:"المطّلع على السرائر."},
+{n:"الوالي",m:"المالك المتصرف."},
+{n:"المتعالي",m:"المنزّه عن النقص."},
+{n:"البر",m:"كثير الإحسان."},
+{n:"التواب",m:"يقبل توبة التائبين."},
+{n:"المنتقم",m:"المعاقِب للمجرمين بعدل."},
+{n:"العفو",m:"يمحو الذنوب ويتجاوز عن السيئات."},
+{n:"الرؤوف",m:"غاية الرحمة والرأفة."},
+{n:"مالك الملك",m:"المتصرّف في الملك."},
+{n:"ذو الجلال والإكرام",m:"صاحب العظمة والكمال والإنعام."},
+{n:"المقسط",m:"العادل المنصِف."},
+{n:"الجامع",m:"يجمع الخلق ليوم الحساب."},
+{n:"الغني",m:"لا يحتاج إلى أحد."},
+{n:"المغني",m:"يغني من يشاء."},
+{n:"المانع",m:"يمنع الضر عمّن يشاء."},
+{n:"الضار",m:"يقدّر الضر عدلًا وابتلاءً."},
+{n:"النافع",m:"يوصل الخير لعباده."},
+{n:"النور",m:"منوِّر القلوب بالهدى."},
+{n:"الهادي",m:"يهدي إلى الصراط المستقيم."},
+{n:"البديع",m:"أبدع الخلق على غير مثال."},
+{n:"الباقي",m:"الدائم الذي لا يزول."},
+{n:"الوارث",m:"الباقي بعد فناء الخلق."},
+{n:"الرشيد",m:"المرشد إلى سبيل الرشاد."},
+{n:"الصبور",m:"يمهل ولا يهمل."}
+];
+
+/* الحالة العامة */
+const Q_TOTAL = 10;
+let order = Array.from(DATA.keys());
+let quizOrder = [];       // فهارس الأسئلة المختارة لهذه الجولة
+let idx = 0;              // رقم السؤال الحالي (0..Q_TOTAL-1)
+let score = 0;
+let lives = 3;
+let wrongLog = [];        // للاطلاع بعد النهاية
+
+/* عناصر DOM */
+const qName = document.getElementById('qName');
+const optionsEl = document.getElementById('options');
+const qResult = document.getElementById('qResult');
+const nIdx = document.getElementById('nIdx');
+const nTotal = document.getElementById('nTotal');
+const score1 = document.getElementById('score');
+const score2 = document.getElementById('score2');
+const bar = document.getElementById('bar');
+const heartsEl = document.getElementById('hearts');
+const panelQuiz = document.getElementById('panelQuiz');
+const panelEnd  = document.getElementById('panelEnd');
+const endTitle  = document.getElementById('endTitle');
+const endMsg    = document.getElementById('endMsg');
+
+/* صوتيات بسيطة */
+let actx=null;
+function ensureAudio(){ if(!actx){ actx=new (window.AudioContext||window.webkitAudioContext)(); } }
+function tone(freq, dur=0.12, type='sine', gain=0.09, when=0){
+  ensureAudio(); const t=actx.currentTime+when;
+  const osc=actx.createOscillator(), g=actx.createGain();
+  osc.type=type; osc.frequency.value=freq;
+  g.gain.value=gain; g.gain.setValueAtTime(gain,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  osc.connect(g).connect(actx.destination); osc.start(t); osc.stop(t+dur);
+}
+function sRight(){ tone(880,0.10,'triangle',0.11,0); tone(1320,0.12,'triangle',0.09,0.07); }
+function sWrong(){ tone(220,0.12,'sawtooth',0.10,0); }
+function sWin(){ [660,880,990,1320].forEach((f,i)=>tone(f,0.16,'square',0.10,i*0.08)); confetti(); }
+
+/* 🎉 مؤثر بصري */
+function confetti(){
+  const c=document.createElement('canvas'); c.width=innerWidth; c.height=innerHeight;
+  Object.assign(c.style,{position:'fixed',inset:'0',pointerEvents:'none',zIndex:9999});
+  document.body.appendChild(c);
+  const ctx=c.getContext('2d'), pcs=[], cols=['#ff6b6b','#ffd166','#06d6a0','#1f7ae0','#8338ec'];
+  for(let i=0;i<160;i++) pcs.push({x:Math.random()*c.width,y:-20-Math.random()*200,r:6+Math.random()*6,col:cols[(Math.random()*cols.length)|0],vx:-1+Math.random()*2,vy:2+Math.random()*2,rot:Math.random()*Math.PI,vr:(-0.1+Math.random()*0.2)});
+  let t=0; (function a(){ ctx.clearRect(0,0,c.width,c.height);
+    pcs.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.vy+=0.05; p.rot+=p.vr; ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot); ctx.fillStyle=p.col; ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r); ctx.restore(); });
+    if(t++<180) requestAnimationFrame(a); else c.remove();
+  })();
+}
+
+/* أدوات */
+function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const r=Math.floor(Math.random()*(i+1)); [arr[i],arr[r]]=[arr[r],arr[i]]; } return arr; }
+function pickDistractors(correctIdx, k=3){
+  const pool = order.filter(x=>x!==correctIdx);
+  shuffle(pool);
+  return pool.slice(0,k);
+}
+
+/* واجهة */
+function drawHearts(){
+  heartsEl.innerHTML='';
+  for(let i=0;i<3;i++){
+    const span=document.createElement('span');
+    span.className='heart' + (i<lives?' alive':'');
+    span.textContent='❤';
+    heartsEl.appendChild(span);
+  }
+}
+
+function updateProgress(){
+  nIdx.textContent = String(idx+1);
+  nTotal.textContent = String(Q_TOTAL);
+  score1.textContent = score;
+  score2.textContent = score;
+  bar.style.width = ((idx)/Q_TOTAL*100).toFixed(1)+'%';
+}
+
+/* سؤال جديد */
+function buildQuestion(){
+  qResult.textContent='';
+  const qIdx = quizOrder[idx];
+  const item = DATA[qIdx];
+  qName.textContent = item.n;
+
+  // توليد الخيارات
+  const opts = [qIdx, ...pickDistractors(qIdx,3)];
+  shuffle(opts);
+
+  optionsEl.innerHTML='';
+  opts.forEach(id=>{
+    const btn=document.createElement('button');
+    btn.className='option';
+    btn.textContent = DATA[id].m;
+    btn.onclick = ()=>{
+      // تعطيل بقية الأزرار
+      [...document.querySelectorAll('.option')].forEach(b=>b.disabled=true);
+      if(id===qIdx){
+        btn.classList.add('correct'); qResult.textContent='أحسنت! ✅'; score+=10; sRight();
+      }else{
+        btn.classList.add('wrong'); qResult.textContent=`الإجابة الصحيحة تخص: «${item.n}».`; lives=Math.max(0,lives-1); sWrong();
+        wrongLog.push({name:item.n, correct:item.m, chosen:DATA[id].m});
+      }
+      drawHearts();
+      setTimeout(nextStep, 800);
+    };
+    optionsEl.appendChild(btn);
+  });
+
+  updateProgress();
+}
+
+/* انتقال للسؤال التالي أو إنهاء */
+function nextStep(){
+  idx++;
+  if(lives===0){ return end(false); }
+  if(idx>=Q_TOTAL){ return end(true); }
+  buildQuestion();
+}
+
+/* نهاية الجولة */
+function end(win){
+  panelQuiz.classList.add('hide');
+  panelEnd.classList.remove('hide');
+  if(win){ endTitle.textContent='رائع! 🎉'; sWin(); }
+  else   { endTitle.textContent='انتهت المحاولات ❗'; }
+  endMsg.textContent = `نتيجتك: ${score} / ${Q_TOTAL*10}` + (wrongLog.length? ` — أخطاء: ${wrongLog.length}`:'');
+}
+
+/* بدء جولة */
+function startGame(shuffleSet=true){
+  score=0; lives=3; idx=0; wrongLog=[];
+  drawHearts();
+  if(shuffleSet) shuffle(order);
+  quizOrder = order.slice(0,Q_TOTAL);
+  panelEnd.classList.add('hide');
+  panelQuiz.classList.remove('hide');
+  updateProgress();
+  buildQuestion();
+}
+
+/* أزرار أعلى */
+document.getElementById('btnRestart').onclick = ()=>startGame(true);
+document.getElementById('btnShuffle').onclick = ()=>{ shuffle(order); startGame(false); };
+document.getElementById('playAgain').onclick = ()=>startGame(true);
+document.getElementById('reviewWrong').onclick = ()=>{
+  if(!wrongLog.length){ alert('لا أخطاء في هذه الجولة 👌'); return; }
+  const msg = wrongLog.map((w,i)=>`${i+1}) «${w.name}»\n✔ ${w.correct}\n✖ ${w.chosen}`).join('\n\n');
+  alert(msg);
+};
+document.getElementById('btnSpeak').onclick = ()=>{
+  const u=new SpeechSynthesisUtterance(qName.textContent); u.lang='ar-SA'; u.rate=0.95; speechSynthesis.cancel(); speechSynthesis.speak(u);
+};
+
+/* تشغيل أولي */
+startGame(true);
+</script>
+</body>
+</html>
