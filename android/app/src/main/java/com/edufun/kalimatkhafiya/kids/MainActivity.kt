@@ -1,4 +1,4 @@
-package com.edufun.ikhtibar
+package com.edufun.kalimatkhafiya.kids
 
 import android.annotation.SuppressLint
 import android.os.Bundle
