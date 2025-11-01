@@ -3,58 +3,47 @@ name: APK Android (debug)
 on:
   workflow_dispatch:
 
+env:
+  WEB_DIR: docs
+  ANDROID_WORKDIR: android
+
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    env:
-      ANDROID_WORKDIR: ${{ github.workspace }}/android
-      WEB_DIR: docs   # tes fichiers web (index.html, sw.js, manifest, assets, public)
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Vérifier
-        run: |
-          echo "Repo=$GITHUB_REPOSITORY"
-          ls -la
-          echo "---- android/ ----"
-          ls -la android || true
-
-      - name: Installer Java 17
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
-          cache: 'gradle'
+          java-version: 17
+
+      - name: Installer Gradle (via apt)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gradle
+          gradle -v
 
       - name: Préparer les ressources Web
         run: |
-          # Répertoire assets web de l'app
+          rm -rf "$ANDROID_WORKDIR/app/src/main/assets/www"
           mkdir -p "$ANDROID_WORKDIR/app/src/main/assets/www"
-          # Nettoyer d’anciennes copies
-          rm -rf "$ANDROID_WORKDIR/app/src/main/assets/www/*" || true
-          # Copier tes fichiers web (docs => assets/www)
-          rsync -a "${WEB_DIR}/" "$ANDROID_WORKDIR/app/src/main/assets/www/"
+          rsync -a "$WEB_DIR/" "$ANDROID_WORKDIR/app/src/main/assets/www/"
+          echo "Copié: $WEB_DIR → $ANDROID_WORKDIR/app/src/main/assets/www"
 
-      - name: Rendre gradlew exécutable
+      - name: Construire APK debug (Gradle système)
         working-directory: android
-        run: chmod +x ./gradlew
+        run: gradle assembleDebug
 
-      - name: Générer un APK de débogage
-        working-directory: android
-        run: ./gradlew --no-daemon assembleDebug
-
-      - name: Lister les APK trouvés
-        working-directory: android
+      - name: Lister APK trouvés
         run: |
-          echo "APK générés :"
-          find app/build/outputs/apk -type f -name "*.apk" -maxdepth 4
+          find "$ANDROID_WORKDIR/app/build/outputs/apk" -type f -name "*.apk" -print
 
-      - name: Téléverser des APK
+      - name: Uploader l’APK
         uses: actions/upload-artifact@v4
         with:
           name: edufun-ikhtibar-apk-debug
           path: android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
