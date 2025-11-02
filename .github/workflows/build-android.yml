@@ -17,33 +17,33 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      # 1) Copier le site dans les assets Android
+      # 1️⃣ Préparer les fichiers Web
       - name: Prepare web assets
+        run: |
+          rm -rf android/app/src/main/assets/www
+          mkdir -p android/app/src/main/assets/www
+          rsync -av --delete docs/ android/app/src/main/assets/www/
+
+      # 2️⃣ Générer le wrapper Gradle si absent
+      - name: Generate Gradle wrapper if missing
         working-directory: android
         run: |
-          rm -rf app/src/main/assets/www
-          mkdir -p app/src/main/assets/www
-          rsync -av --delete ../docs/ app/src/main/assets/www/
+          if [ ! -f "./gradlew" ]; then
+            echo "Gradle wrapper missing, generating..."
+            gradle wrapper --gradle-version 8.7
+          fi
 
-      # 2) Générer le WRAPPER Gradle (si absent)
-      - name: Generate Gradle wrapper (first run)
-        uses: gradle/gradle-build-action@v2
-        with:
-          gradle-version: 8.7           # télécharge Gradle 8.7
-          build-root-directory: android  # exécute dans /android
-          arguments: wrapper             # crée android/gradlew & gradlew.bat
-
-      # 3) Donner les droits d’exécution au wrapper (Linux runner)
+      # 3️⃣ Donner les droits d’exécution
       - name: Make gradlew executable
         working-directory: android
         run: chmod +x ./gradlew
 
-      # 4) Build l’APK debug via le wrapper
+      # 4️⃣ Compiler l’APK
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug --stacktrace
 
-      # 5) Publier l’APK en artifact
+      # 5️⃣ Upload de l’APK
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
