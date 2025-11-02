@@ -3,13 +3,13 @@ name: APK Android (debug)
 on:
   workflow_dispatch:
 
-env:
-  WEB_DIR: docs
-  ANDROID_WORKDIR: android
-
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: android   # <<< très important
 
     steps:
       - name: Checkout
@@ -21,29 +21,21 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Installer Gradle (via apt)
+      # On prépare le dossier assets/www en copiant les fichiers web
+      - name: Prepare web assets
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gradle
-          gradle -v
+          rm -rf app/src/main/assets/www
+          mkdir -p app/src/main/assets/www
+          rsync -av --delete ../docs/ app/src/main/assets/www/
 
-      - name: Préparer les ressources Web
-        run: |
-          rm -rf "$ANDROID_WORKDIR/app/src/main/assets/www"
-          mkdir -p "$ANDROID_WORKDIR/app/src/main/assets/www"
-          rsync -a "$WEB_DIR/" "$ANDROID_WORKDIR/app/src/main/assets/www/"
-          echo "Copié: $WEB_DIR → $ANDROID_WORKDIR/app/src/main/assets/www"
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
 
-      - name: Construire APK debug (Gradle système)
-        working-directory: android
-        run: gradle assembleDebug
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --stacktrace
 
-      - name: Lister APK trouvés
-        run: |
-          find "$ANDROID_WORKDIR/app/build/outputs/apk" -type f -name "*.apk" -print
-
-      - name: Uploader l’APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: edufun-ikhtibar-apk-debug
-          path: android/app/build/outputs/apk/debug/*.apk
+          name: app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
