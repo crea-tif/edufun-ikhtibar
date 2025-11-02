@@ -7,63 +7,42 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    # Toutes les commandes "run" s'exécutent dans /android
+    defaults:
+      run:
+        working-directory: android
 
-      - name: Java 17
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      # 1) Préparer les assets web
-      - name: Prepare web assets
-        working-directory: android
+      - name: Préparer les assets Web (docs -> app/src/main/assets/www)
         run: |
-          set -euxo pipefail
-          mkdir -p app/src/main/assets/www
-          rm -rf app/src/main/assets/www/*
-          rsync -av --delete ../docs/ app/src/main/assets/www/
+          rm -rf app/src/main/assets/www
+          mkdir -p app/src/main/assets
+          rsync -a --delete ../docs/ app/src/main/assets/www/
 
-      # 2) Si le wrapper n'existe pas, le créer avec Gradle 8.7
-      - name: Ensure Gradle wrapper (8.7)
-        working-directory: android
+      - name: Générer le wrapper Gradle si absent
         run: |
-          set -euxo pipefail
-          if [ ! -x "./gradlew" ]; then
-            echo "Wrapper absent -> génération"
+          if [ ! -f ./gradlew ]; then
+            sudo apt-get update
+            sudo apt-get install -y gradle
             gradle wrapper --gradle-version 8.7
           fi
-          chmod +x ./gradlew
 
-      - name: Show Gradle/AGP versions
-        working-directory: android
-        run: |
-          set -euxo pipefail
-          ./gradlew --version
-          echo "settings.gradle:"
-          head -n 50 settings.gradle || true
-          echo "root build.gradle:"
-          head -n 120 build.gradle || true
-          echo "app/build.gradle:"
-          head -n 200 app/build.gradle || true
+      - name: Rendre gradlew exécutable
+        run: chmod +x ./gradlew
 
-      # 3) Build + logs détaillés + upload systématique du log
-      - name: Build debug APK (stacktrace + info)
-        working-directory: android
-        run: |
-          set -euxo pipefail
-          ./gradlew :app:assembleDebug --stacktrace --info | tee ../gradle-build.log
-        continue-on-error: true
+      - name: Construire l'APK debug
+        run: ./gradlew assembleDebug
 
-      # 4) Uploader APK si présent
-      - name: Upload APK
-        if: always()
+      - name: Uploader l'APK
         uses: actions/upload-artifact@v4
         with:
-          name: apk-or-logs
-          path: |
-            android/app/build/outputs/apk/debug/app-debug.apk
-            gradle-build.log
-          if-no-files-found: warn
+          name: app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
