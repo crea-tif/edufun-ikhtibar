@@ -7,13 +7,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # Toutes les commandes "run" s'exécutent dans /android
-    defaults:
-      run:
-        working-directory: android
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -21,28 +17,36 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Préparer les assets Web (docs -> app/src/main/assets/www)
+      # 1) Copier le site web dans les assets Android
+      - name: Prepare web assets
+        working-directory: android
         run: |
           rm -rf app/src/main/assets/www
-          mkdir -p app/src/main/assets
-          rsync -a --delete ../docs/ app/src/main/assets/www/
+          mkdir -p app/src/main/assets/www
+          rsync -av --delete ../docs/ app/src/main/assets/www/
 
-      - name: Générer le wrapper Gradle si absent
-        run: |
-          if [ ! -f ./gradlew ]; then
-            sudo apt-get update
-            sudo apt-get install -y gradle
-            gradle wrapper --gradle-version 8.7
-          fi
+      # 2) Générer le wrapper Gradle dans /android (si absent)
+      - name: Generate Gradle wrapper
+        uses: gradle/gradle-build-action@v2
+        with:
+          build-root-directory: android
+          gradle-version: 8.7
+          arguments: wrapper
 
-      - name: Rendre gradlew exécutable
+      # 3) Rendre le wrapper exécutable (dans /android)
+      - name: Make gradlew executable
+        working-directory: android
         run: chmod +x ./gradlew
 
-      - name: Construire l'APK debug
-        run: ./gradlew assembleDebug
+      # 4) Build APK debug
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --stacktrace
 
-      - name: Uploader l'APK
+      # 5) Upload de l’APK produit
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug.apk
+          name: edufun-ikhtibar-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
